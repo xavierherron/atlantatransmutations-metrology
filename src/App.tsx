@@ -268,9 +268,7 @@ function App() {
   const activeModel = models.find(m => m.id === activeModelId);
   const geometry = activeModel?.geometry || null;
   const objectScale = activeModel?.scale || 1;
-  const panOffset = activeModel?.panOffset || { x: 0, z: 0 };
   const fineRotationY = activeModel?.fineRotationY || 0;
-  const snapRotation = activeModel?.snapRotation || { x: 0, y: 0, z: 0 };
 
   const updateActiveModel = (updater: (prev: any) => any) => {
     setModels(prev => prev.map(m => m.id === activeModelId ? updater(m) : m));
@@ -638,11 +636,11 @@ function App() {
             <Suspense fallback={null}>
               <group>
                 <VirtualPrinter width={activePrinter.width} depth={activePrinter.depth} height={activePrinter.height} style={activePrinter.style} isPreviewMode={isPreviewMode} isCalibrating={isCalibrating} showMeasurements={showMeasurements} unit={unit} />
-                <group position={[panOffset.x, 0, panOffset.z]} rotation={[0, fineRotationY, 0]}>
-                  
-                    <ModelRenderer geometry={geometry} scale={objectScale} snapRotation={snapRotation} showMeasurements={showMeasurements} unit={unit} isPreviewMode={isPreviewMode} />
-                  
-                </group>
+                {models.map(m => (
+                  <group key={m.id} position={[m.panOffset.x, 0, m.panOffset.z]} rotation={[0, m.fineRotationY, 0]}>
+                    <ModelRenderer geometry={m.geometry} scale={m.scale} snapRotation={m.snapRotation} showMeasurements={showMeasurements && activeModelId === m.id} unit={unit} isPreviewMode={isPreviewMode} />
+                  </group>
+                ))}
               </group>
             </Suspense>
           </Canvas>
