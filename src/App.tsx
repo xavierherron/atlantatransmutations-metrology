@@ -295,11 +295,9 @@ function App() {
 
 
   const [selectedPrinterPreset, setSelectedPrinterPreset] = useState(PRINTERS[0]);
-  const [customDims, setCustomDims] = useState({ width: 300, depth: 300, height: 300 });
+  const [customDims, setCustomDims] = useState({ width: PRINTERS[0].width, depth: PRINTERS[0].depth, height: PRINTERS[0].height });
 
-  const activePrinter = selectedPrinterPreset.name === 'Custom Printer...' 
-    ? { ...selectedPrinterPreset, width: customDims.width, depth: customDims.depth, height: customDims.height } 
-    : selectedPrinterPreset;
+  const activePrinter = { ...selectedPrinterPreset, width: customDims.width, depth: customDims.depth, height: customDims.height };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -465,7 +463,11 @@ function App() {
             <select 
               className="bg-transparent text-sm focus:outline-none cursor-pointer text-amber-500 font-medium"
               value={selectedPrinterPreset.name}
-              onChange={(e) => setSelectedPrinterPreset(PRINTERS.find(p => p.name === e.target.value) || PRINTERS[0])}
+              onChange={(e) => {
+                const p = PRINTERS.find(p => p.name === e.target.value) || PRINTERS[0];
+                setSelectedPrinterPreset(p);
+                setCustomDims({ width: p.width, depth: p.depth, height: p.height });
+              }}
             >
               {PRINTERS.map(p => (
                 <option key={p.name} value={p.name} className="bg-[#1a0f00]">{p.name}</option>
@@ -473,14 +475,12 @@ function App() {
             </select>
           </div>
           
-          {selectedPrinterPreset.name === 'Custom Printer...' && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded border bg-[#1a0f00] border-[#4a2800]">
-               <span className="text-xs text-amber-700 font-medium">XYZ (mm):</span>
-               <input type="number" value={customDims.width} onChange={e => setCustomDims({...customDims, width: parseInt(e.target.value) || 10})} className="w-12 bg-transparent text-xs text-center border-b border-[#4a2800] focus:border-amber-500 focus:outline-none" />
-               <input type="number" value={customDims.depth} onChange={e => setCustomDims({...customDims, depth: parseInt(e.target.value) || 10})} className="w-12 bg-transparent text-xs text-center border-b border-[#4a2800] focus:border-amber-500 focus:outline-none" />
-               <input type="number" value={customDims.height} onChange={e => setCustomDims({...customDims, height: parseInt(e.target.value) || 10})} className="w-12 bg-transparent text-xs text-center border-b border-[#4a2800] focus:border-amber-500 focus:outline-none" />
-            </div>
-          )}
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded border bg-[#1a0f00] border-[#4a2800]">
+             <span className="text-xs text-amber-700 font-medium">XYZ (mm):</span>
+             <input type="number" value={customDims.width} onChange={e => setCustomDims({...customDims, width: parseInt(e.target.value) || 10})} className="w-16 bg-transparent text-xs text-center border-b border-[#4a2800] focus:border-amber-500 focus:outline-none" />
+             <input type="number" value={customDims.depth} onChange={e => setCustomDims({...customDims, depth: parseInt(e.target.value) || 10})} className="w-16 bg-transparent text-xs text-center border-b border-[#4a2800] focus:border-amber-500 focus:outline-none" />
+             <input type="number" value={customDims.height} onChange={e => setCustomDims({...customDims, height: parseInt(e.target.value) || 10})} className="w-16 bg-transparent text-xs text-center border-b border-[#4a2800] focus:border-amber-500 focus:outline-none" />
+          </div>
 
           {/* Tools Group */}
           <div className="flex items-center gap-1 border-r border-[#4a2800] pr-4">
