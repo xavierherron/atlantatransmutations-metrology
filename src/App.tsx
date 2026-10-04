@@ -45,10 +45,10 @@ const ModelRenderer = ({ geometry, scale = 1, snapRotation = {x:0, y:0, z:0}, sh
   }
 
   const format = (val: number) => {
-    if (unit === 'in') return (val / 25.4).toFixed(2);
-    if (unit === 'ft') return (val / 304.8).toFixed(2);
-    if (unit === 'yd') return (val / 914.4).toFixed(2);
-    return val.toFixed(2);
+    if (unit === 'in') return (val / 25.4).toFixed(4);
+    if (unit === 'ft') return (val / 304.8).toFixed(4);
+    if (unit === 'yd') return (val / 914.4).toFixed(4);
+    return val.toFixed(4);
   };
 
   return (
@@ -113,11 +113,11 @@ const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrat
     if (style === 'hangar') gridDivisions = Math.max(width, depth) / 1000; // 1000mm grid for hangar
     
     const format = (val: number) => {
-        if (unit === 'in') return (val / 25.4).toFixed(1) + ' in';
-        if (unit === 'ft') return (val / 304.8).toFixed(2) + ' ft';
-        if (unit === 'yd') return (val / 914.4).toFixed(2) + ' yd';
-        if (val >= 1000 && unit === 'mm') return (val / 1000).toFixed(1) + ' m';
-        return val.toFixed(1) + ' mm';
+        if (unit === 'in') return (val / 25.4).toFixed(4) + ' in';
+        if (unit === 'ft') return (val / 304.8).toFixed(4) + ' ft';
+        if (unit === 'yd') return (val / 914.4).toFixed(4) + ' yd';
+        if (val >= 1000 && unit === 'mm') return (val / 1000).toFixed(4) + ' m';
+        return val.toFixed(4) + ' mm';
     };
     
     return (
@@ -485,9 +485,14 @@ function App() {
           {/* Tools Group */}
           <div className="flex items-center gap-1 border-r border-[#4a2800] pr-4">
             <button 
-              onClick={() => setUnit(unit === 'mm' ? 'in' : 'mm')}
+              onClick={() => {
+                if (unit === 'mm') setUnit('in');
+                else if (unit === 'in') setUnit('ft');
+                else if (unit === 'ft') setUnit('yd');
+                else setUnit('mm');
+              }}
               className="px-3 py-2 rounded text-sm font-bold font-mono text-amber-600 hover:bg-[#3a2000] transition-colors"
-              title="Toggle Units (mm / in)"
+              title="Toggle Units"
             >
               {unit}
             </button>
