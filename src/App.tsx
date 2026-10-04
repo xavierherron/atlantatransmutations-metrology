@@ -624,7 +624,7 @@ function App() {
             
             <Suspense fallback={null}>
               <group>
-                <VirtualPrinter width={activePrinter.width} depth={activePrinter.depth} height={activePrinter.height} style={activePrinter.style} isPreviewMode={isPreviewMode} isCalibrating={isCalibrating} />
+                <VirtualPrinter width={activePrinter.width} depth={activePrinter.depth} height={activePrinter.height} style={activePrinter.style} isPreviewMode={isPreviewMode} isCalibrating={isCalibrating} showMeasurements={showMeasurements} unit={unit} />
                 <group position={[panOffset.x, 0, panOffset.z]} rotation={[0, fineRotationY, 0]}>
                   
                     <ModelRenderer geometry={geometry} scale={objectScale} snapRotation={snapRotation} showMeasurements={showMeasurements} unit={unit} isPreviewMode={isPreviewMode} />
