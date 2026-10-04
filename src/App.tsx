@@ -1,6 +1,6 @@
 import React, { useState, useRef, Suspense, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrthographicCamera, PerspectiveCamera, OrbitControls, Html, Center } from '@react-three/drei';
+import { OrthographicCamera, PerspectiveCamera, OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { Upload, Maximize2, Crosshair, Grid, Settings2, Box, Scaling, Ruler, Download } from 'lucide-react';
@@ -22,7 +22,11 @@ const ModelRenderer = ({ geometry, scale = 1, snapRotation = {x:0, y:0, z:0}, sh
   const baseColor = "#ffaa00";
   const edgeColor = "#ffff00";
 
+  let yOffset = 0;
+  let xOffset = 0;
+  let zOffset = 0;
   const size = new THREE.Vector3();
+  
   if (geometry.boundingBox) {
     const dummy = new THREE.Mesh(geometry);
     dummy.rotation.set(snapRotation.x, snapRotation.y, snapRotation.z);
@@ -30,40 +34,47 @@ const ModelRenderer = ({ geometry, scale = 1, snapRotation = {x:0, y:0, z:0}, sh
     dummy.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(dummy);
     box.getSize(size);
+    yOffset = -box.min.y;
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    xOffset = -center.x;
+    zOffset = -center.z;
   }
 
   const format = (val: number) => (unit === 'in' ? val / 25.4 : val).toFixed(2);
 
   return (
-    <group rotation={[snapRotation.x, snapRotation.y, snapRotation.z]}>
-      <mesh geometry={geometry} scale={[scale, scale, scale]}>
-        <meshBasicMaterial color={baseColor} wireframe={false} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} />
-        <lineSegments>
-          <edgesGeometry args={[geometry, 15]} />
-          <lineBasicMaterial color={edgeColor} linewidth={2} transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} />
-        </lineSegments>
+    <group position={[xOffset, yOffset, zOffset]}>
+      <group rotation={[snapRotation.x, snapRotation.y, snapRotation.z]}>
+        <mesh geometry={geometry} scale={[scale, scale, scale]}>
+          <meshBasicMaterial color={baseColor} wireframe={false} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} />
+          <lineSegments>
+            <edgesGeometry args={[geometry, 15]} />
+            <lineBasicMaterial color={edgeColor} linewidth={2} transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </lineSegments>
+        </mesh>
+      </group>
 
-        {/* Measurement Overlays */}
-        {showMeasurements && size.length() > 0 && (
-          <group scale={[1/scale, 1/scale, 1/scale]}>
-            <Html position={[0, 0, size.z/2 + 15]} center style={{ pointerEvents: 'none' }}>
-              <div className={`px-2 py-1 rounded text-xs font-mono whitespace-nowrap shadow-xl border ${isPreviewMode ? 'bg-[#2a1700]/90 text-amber-500 border-[#4a2800]' : 'bg-black text-[#ffaa00] border-[#ffaa00]/50'}`}>
-                X: {format(size.x)} {unit}
-              </div>
-            </Html>
-            <Html position={[size.x/2 + 15, 0, 0]} center style={{ pointerEvents: 'none' }}>
-              <div className={`px-2 py-1 rounded text-xs font-mono whitespace-nowrap shadow-xl border ${isPreviewMode ? 'bg-[#2a1700]/90 text-amber-500 border-[#4a2800]' : 'bg-black text-[#ffaa00] border-[#ffaa00]/50'}`}>
-                Y: {format(size.z)} {unit}
-              </div>
-            </Html>
-            <Html position={[-size.x/2 - 15, size.y/2, 0]} center style={{ pointerEvents: 'none' }}>
-              <div className={`px-2 py-1 rounded text-xs font-mono whitespace-nowrap shadow-xl border ${isPreviewMode ? 'bg-[#2a1700]/90 text-amber-500 border-[#4a2800]' : 'bg-black text-[#ffaa00] border-[#ffaa00]/50'}`}>
-                Z: {format(size.y)} {unit}
-              </div>
-            </Html>
-          </group>
-        )}
-      </mesh>
+      {/* Measurement Overlays placed in the unrotated parent group! */}
+      {showMeasurements && size.length() > 0 && (
+        <group>
+          <Html position={[0, 0, size.z/2 + 15]} center style={{ pointerEvents: 'none' }}>
+            <div className={`px-2 py-1 rounded text-xs font-mono whitespace-nowrap shadow-xl border ${isPreviewMode ? 'bg-[#2a1700]/90 text-amber-500 border-[#4a2800]' : 'bg-black text-[#ffaa00] border-[#ffaa00]/50'}`}>
+              X: {format(size.x)} {unit}
+            </div>
+          </Html>
+          <Html position={[size.x/2 + 15, 0, 0]} center style={{ pointerEvents: 'none' }}>
+            <div className={`px-2 py-1 rounded text-xs font-mono whitespace-nowrap shadow-xl border ${isPreviewMode ? 'bg-[#2a1700]/90 text-amber-500 border-[#4a2800]' : 'bg-black text-[#ffaa00] border-[#ffaa00]/50'}`}>
+              Y: {format(size.z)} {unit}
+            </div>
+          </Html>
+          <Html position={[-size.x/2 - 15, size.y/2, 0]} center style={{ pointerEvents: 'none' }}>
+            <div className={`px-2 py-1 rounded text-xs font-mono whitespace-nowrap shadow-xl border ${isPreviewMode ? 'bg-[#2a1700]/90 text-amber-500 border-[#4a2800]' : 'bg-black text-[#ffaa00] border-[#ffaa00]/50'}`}>
+              Z: {format(size.y)} {unit}
+            </div>
+          </Html>
+        </group>
+      )}
     </group>
   );
 };
@@ -500,9 +511,9 @@ function App() {
               <group>
                 <VirtualPrinter width={activePrinter.width} depth={activePrinter.depth} height={activePrinter.height} style={activePrinter.style} isPreviewMode={isPreviewMode} isCalibrating={isCalibrating} />
                 <group position={[panOffset.x, 0, panOffset.z]} rotation={[0, fineRotationY, 0]}>
-                  <Center bottom>
+                  
                     <ModelRenderer geometry={geometry} scale={objectScale} snapRotation={snapRotation} showMeasurements={showMeasurements} unit={unit} isPreviewMode={isPreviewMode} />
-                  </Center>
+                  
                 </group>
               </group>
             </Suspense>
