@@ -19,7 +19,7 @@ const PRINTERS = [
   { name: 'Custom Printer...', width: 300, depth: 300, height: 300, style: 'enclosed' }
 ];
 
-const ModelRenderer = ({ geometry, scale = 1, snapRotation = {x:0, y:0, z:0}, showMeasurements = false, unit = 'mm', isPreviewMode = true }: { geometry: THREE.BufferGeometry | null, scale?: number, snapRotation?: {x:number, y:number, z:number}, showMeasurements?: boolean, unit?: 'mm' | 'in', isPreviewMode?: boolean }) => {
+const ModelRenderer = ({ geometry, scale = 1, snapRotation = {x:0, y:0, z:0}, showMeasurements = false, unit = 'mm', isPreviewMode = true }: { geometry: THREE.BufferGeometry | null, scale?: number, snapRotation?: {x:number, y:number, z:number}, showMeasurements?: boolean, unit?: 'mm' | 'in' | 'ft' | 'yd', isPreviewMode?: boolean }) => {
   if (!geometry) return null;
   
   const baseColor = "#ffaa00";
@@ -44,7 +44,12 @@ const ModelRenderer = ({ geometry, scale = 1, snapRotation = {x:0, y:0, z:0}, sh
     zOffset = -center.z;
   }
 
-  const format = (val: number) => (unit === 'in' ? val / 25.4 : val).toFixed(2);
+  const format = (val: number) => {
+    if (unit === 'in') return (val / 25.4).toFixed(2);
+    if (unit === 'ft') return (val / 304.8).toFixed(2);
+    if (unit === 'yd') return (val / 914.4).toFixed(2);
+    return val.toFixed(2);
+  };
 
   return (
     <group position={[xOffset, yOffset, zOffset]}>
@@ -82,7 +87,7 @@ const ModelRenderer = ({ geometry, scale = 1, snapRotation = {x:0, y:0, z:0}, sh
   );
 };
 
-const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrating, showMeasurements = false, unit = 'mm' }: { width: number, depth: number, height: number, style: string, isPreviewMode: boolean, isCalibrating: boolean, showMeasurements?: boolean, unit?: 'mm'|'in' }) => {
+const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrating, showMeasurements = false, unit = 'mm' }: { width: number, depth: number, height: number, style: string, isPreviewMode: boolean, isCalibrating: boolean, showMeasurements?: boolean, unit?: 'mm'|'in'|'ft'|'yd' }) => {
   const lightColor = "#ffaa00";
 
   // In projection mode, we MUST project a pitch-black background.
@@ -108,8 +113,11 @@ const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrat
     if (style === 'hangar') gridDivisions = Math.max(width, depth) / 1000; // 1000mm grid for hangar
     
     const format = (val: number) => {
+        if (unit === 'in') return (val / 25.4).toFixed(1) + ' in';
+        if (unit === 'ft') return (val / 304.8).toFixed(2) + ' ft';
+        if (unit === 'yd') return (val / 914.4).toFixed(2) + ' yd';
         if (val >= 1000 && unit === 'mm') return (val / 1000).toFixed(1) + ' m';
-        return (unit === 'in' ? val / 25.4 : val).toFixed(1) + ' ' + unit;
+        return val.toFixed(1) + ' mm';
     };
     
     return (
@@ -276,7 +284,7 @@ function App() {
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(true);
   const [showMeasurements, setShowMeasurements] = useState(true);
-  const [unit, setUnit] = useState<'mm'|'in'>('mm');
+  const [unit, setUnit] = useState<'mm'|'in'|'ft'|'yd'>('mm');
   const [projScale, setProjScale] = useState(1);
   const deleteActiveModel = () => {
     if (!activeModelId) return;
