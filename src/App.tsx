@@ -564,9 +564,9 @@ function App() {
           <Canvas>
             {isPreviewMode ? (
               <>
-                <PerspectiveCamera makeDefault position={[0, activePrinter.height * 0.8, activePrinter.depth * 1.5]} fov={50} />
+                <PerspectiveCamera makeDefault position={[0, activePrinter.height * 0.8, activePrinter.depth * 1.5]} fov={50} far={200000} near={1} />
                 <OrbitControls target={[0, activePrinter.height / 3, 0]} maxPolarAngle={Math.PI / 2} />
-                <ambientLight intensity={1.5} />
+                <ambientLight intensity={2.5} />
                 <pointLight position={[0, activePrinter.height, 0]} intensity={2} color="#ffffff" />
                 <directionalLight position={[100, 200, 100]} intensity={1} color="#ffffff" />
               </>
