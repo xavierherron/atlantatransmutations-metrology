@@ -82,7 +82,7 @@ const ModelRenderer = ({ geometry, scale = 1, snapRotation = {x:0, y:0, z:0}, sh
   );
 };
 
-const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrating }: { width: number, depth: number, height: number, style: string, isPreviewMode: boolean, isCalibrating: boolean }) => {
+const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrating, showMeasurements = false, unit = 'mm' }: { width: number, depth: number, height: number, style: string, isPreviewMode: boolean, isCalibrating: boolean, showMeasurements?: boolean, unit?: 'mm'|'in' }) => {
   const lightColor = "#ffaa00";
 
   // In projection mode, we MUST project a pitch-black background.
@@ -102,25 +102,56 @@ const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrat
     );
   }
 
-  const BuildPlate = () => (
-    <group position={[0, 0, 0]}>
-      <mesh position={[0, -3.5, 0]}>
-        <boxGeometry args={[width + 4, 5, depth + 4]} />
-        <meshStandardMaterial color="#3a2000" metalness={0.5} roughness={0.8} />
-      </mesh>
-      <mesh position={[0, -0.5, 0]}>
-        <boxGeometry args={[width, 1, depth]} />
-        <meshStandardMaterial color="#1a0f00" metalness={0.2} roughness={0.8} />
-      </mesh>
-      <gridHelper args={[Math.max(width, depth), Math.max(width, depth) / 10, '#4a2800', '#2a1700']} position={[0, 0.05, 0]} />
-      <group position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <lineSegments>
-          <edgesGeometry args={[new THREE.PlaneGeometry(width, depth)]} />
-          <lineBasicMaterial color={lightColor} linewidth={2} transparent opacity={0.6} />
-        </lineSegments>
+  const BuildPlate = () => {
+    let gridDivisions = Math.max(width, depth) / 10;
+    if (style === 'garage') gridDivisions = Math.max(width, depth) / 100; // 100mm grid for garage
+    if (style === 'hangar') gridDivisions = Math.max(width, depth) / 1000; // 1000mm grid for hangar
+    
+    const format = (val: number) => {
+        if (val >= 1000 && unit === 'mm') return (val / 1000).toFixed(1) + ' m';
+        return (unit === 'in' ? val / 25.4 : val).toFixed(1) + ' ' + unit;
+    };
+    
+    return (
+      <group position={[0, 0, 0]}>
+        <mesh position={[0, -3.5, 0]}>
+          <boxGeometry args={[width + 4, 5, depth + 4]} />
+          <meshStandardMaterial color={style === 'garage' || style === 'hangar' ? "#1a1a1a" : "#3a2000"} metalness={0.5} roughness={0.8} />
+        </mesh>
+        <mesh position={[0, -0.5, 0]}>
+          <boxGeometry args={[width, 1, depth]} />
+          <meshStandardMaterial color={style === 'garage' || style === 'hangar' ? "#0f0f0f" : "#1a0f00"} metalness={0.2} roughness={0.8} />
+        </mesh>
+        <gridHelper args={[Math.max(width, depth), gridDivisions, '#4a2800', '#2a1700']} position={[0, 0.05, 0]} />
+        <group position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <lineSegments>
+            <edgesGeometry args={[new THREE.PlaneGeometry(width, depth)]} />
+            <lineBasicMaterial color={lightColor} linewidth={2} transparent opacity={0.6} />
+          </lineSegments>
+        </group>
+
+        {showMeasurements && isPreviewMode && (
+          <group>
+            <Html position={[0, 0, depth/2 + (style==='hangar'?500:20)]} center style={{ pointerEvents: 'none' }}>
+              <div className="px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap opacity-60 bg-black text-[#8a5d00] border border-[#4a2800]">
+                Width: {format(width)}
+              </div>
+            </Html>
+            <Html position={[width/2 + (style==='hangar'?500:20), 0, 0]} center style={{ pointerEvents: 'none' }}>
+              <div className="px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap opacity-60 bg-black text-[#8a5d00] border border-[#4a2800]">
+                Depth: {format(depth)}
+              </div>
+            </Html>
+            <Html position={[-width/2 - (style==='hangar'?500:20), height/2, 0]} center style={{ pointerEvents: 'none' }}>
+              <div className="px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap opacity-60 bg-black text-[#8a5d00] border border-[#4a2800]">
+                Height: {format(height)}
+              </div>
+            </Html>
+          </group>
+        )}
       </group>
-    </group>
-  );
+    );
+  };
 
   const LightCone = ({ headY }: { headY: number }) => (
     <group position={[0, headY, 0]}>
@@ -247,6 +278,13 @@ function App() {
   const [showMeasurements, setShowMeasurements] = useState(true);
   const [unit, setUnit] = useState<'mm'|'in'>('mm');
   const [projScale, setProjScale] = useState(1);
+  const deleteActiveModel = () => {
+    if (!activeModelId) return;
+    const remaining = models.filter(m => m.id !== activeModelId);
+    setModels(remaining);
+    setActiveModelId(remaining.length > 0 ? remaining[0].id : null);
+  };
+
 
   const [selectedPrinterPreset, setSelectedPrinterPreset] = useState(PRINTERS[0]);
   const [customDims, setCustomDims] = useState({ width: 300, depth: 300, height: 300 });
@@ -502,8 +540,15 @@ function App() {
         className={`flex-1 relative flex items-center justify-center cursor-crosshair overflow-hidden ${isPreviewMode ? 'bg-[#0a0500]' : 'bg-black'}`}
       >
         {/* Floating Controls Toolbar */}
-        {geometry && isPreviewMode && (
-          <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 p-4 w-56 rounded-xl border bg-[#1a0f00]/90 border-[#4a2800] backdrop-blur-md shadow-xl">
+        {models.length > 0 && isPreviewMode && (
+          <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 p-4 w-56 rounded-xl border bg-[#1a0f00]/90 border-[#4a2800] backdrop-blur-md shadow-xl pointer-events-auto">
+             <div className="text-xs font-bold tracking-wider uppercase text-amber-600">Active Part</div>
+             <div className="flex gap-2 mb-2">
+               <select value={activeModelId || ''} onChange={e => setActiveModelId(e.target.value)} className="flex-1 bg-[#0a0500] text-amber-500 border border-[#4a2800] rounded p-1 text-xs truncate">
+                 {models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+               </select>
+               <button onClick={deleteActiveModel} className="px-2 bg-red-900/50 hover:bg-red-800 text-red-400 border border-red-900 rounded font-bold transition-colors" title="Delete Part">✕</button>
+             </div>
              <div className="text-xs font-bold tracking-wider uppercase text-amber-600">Snap Rotate 90°</div>
              <div className="flex gap-2 mb-2">
                <button onClick={() => rotateGeometry('x')} className="flex-1 px-2 py-1.5 rounded-lg text-xs font-bold bg-[#2a1700] hover:bg-[#3a2000] text-amber-500 transition-colors border border-[#4a2800] shadow-sm">X</button>
