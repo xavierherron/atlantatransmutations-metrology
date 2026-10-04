@@ -3,7 +3,8 @@ import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera, PerspectiveCamera, OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import { Upload, Maximize2, Crosshair, Grid, Settings2, Box, Scaling, Ruler } from 'lucide-react';
+import { Upload, Maximize2, Crosshair, Grid, Settings2, Box, Scaling, Ruler, Download } from 'lucide-react';
+import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js';
 
 const PRINTERS = [
   { name: 'Flashforge Creator 5 Pro', width: 256, depth: 256, height: 300, style: 'enclosed' },
@@ -259,6 +260,36 @@ function App() {
     setGeometry(newGeo);
   };
 
+  const exportSTL = () => {
+    if (!geometry) return;
+    
+    // Clone to avoid modifying the current view
+    const exportGeo = geometry.clone();
+    
+    // Apply transformations in the exact order they are rendered
+    exportGeo.scale(objectScale, objectScale, objectScale);
+    exportGeo.rotateY(fineRotationY);
+    exportGeo.translate(panOffset.x, 0, panOffset.z);
+    
+    // Convert back from ThreeJS Y-up space to standard STL Z-up space
+    exportGeo.rotateX(Math.PI / 2);
+    
+    const exportMesh = new THREE.Mesh(exportGeo, new THREE.MeshBasicMaterial());
+    const exporter = new STLExporter();
+    const stlString = exporter.parse(exportMesh);
+    
+    const blob = new Blob([stlString], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.style.display = 'none';
+    link.href = url;
+    link.download = 'aligned_part.stl';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   const toggleFullscreen = () => {
@@ -343,6 +374,16 @@ function App() {
             <span className="hidden xl:inline">Upload STL</span>
             <input type="file" accept=".stl" className="hidden" onChange={handleFileUpload} />
           </label>
+
+          <button 
+            onClick={exportSTL}
+            disabled={!geometry}
+            className={`flex items-center gap-2 px-3 py-2 md:px-4 rounded transition-colors text-sm font-medium whitespace-nowrap shadow-sm border ${!geometry ? 'bg-[#2a1700] text-[#4a2800] border-[#3a2000] cursor-not-allowed' : 'bg-[#1a0f00] text-amber-500 border-[#4a2800] hover:bg-[#2a1700]'}`}
+            title="Download Aligned STL"
+          >
+            <Download size={16} />
+            <span className="hidden xl:inline">Export STL</span>
+          </button>
           
           <button 
             onClick={() => setIsPreviewMode(!isPreviewMode)}
