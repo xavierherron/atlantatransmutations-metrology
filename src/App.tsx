@@ -172,6 +172,7 @@ const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrat
 
 function App() {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const [, setRenderTick] = useState(0);
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(true);
   const [showMeasurements, setShowMeasurements] = useState(true);
@@ -244,20 +245,28 @@ function App() {
 
   const rotateGeometry = (axis: 'x' | 'y' | 'z') => {
     if (!geometry) return;
-    const newGeo = geometry.clone();
     
-    if (axis === 'x') newGeo.rotateX(Math.PI / 2);
-    if (axis === 'y') newGeo.rotateY(Math.PI / 2);
-    if (axis === 'z') newGeo.rotateZ(Math.PI / 2);
+    // Mutate in-place to avoid freezing the browser on massive STLs
+    if (axis === 'x') geometry.rotateX(Math.PI / 2);
+    if (axis === 'y') geometry.rotateY(Math.PI / 2);
+    if (axis === 'z') geometry.rotateZ(Math.PI / 2);
     
-    newGeo.computeBoundingBox();
-    if (newGeo.boundingBox) {
+    geometry.computeBoundingBox();
+    if (geometry.boundingBox) {
       const center = new THREE.Vector3();
-      newGeo.boundingBox.getCenter(center);
-      newGeo.translate(-center.x, -newGeo.boundingBox.min.y, -center.z);
+      geometry.boundingBox.getCenter(center);
+      geometry.translate(-center.x, -geometry.boundingBox.min.y, -center.z);
     }
     
-    setGeometry(newGeo);
+    // Tell Three.js the vertices changed
+    geometry.attributes.position.needsUpdate = true;
+    if (geometry.attributes.normal) {
+      geometry.computeVertexNormals();
+      geometry.attributes.normal.needsUpdate = true;
+    }
+    
+    // Force React to re-render the overlay annotations
+    setRenderTick(t => t + 1);
   };
 
   const exportSTL = () => {
