@@ -189,17 +189,30 @@ const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrat
 };
 
 function App() {
-  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
-  const [snapRotation, setSnapRotation] = useState({x: 0, y: 0, z: 0});
+  const [models, setModels] = useState<any[]>([]);
+  const [activeModelId, setActiveModelId] = useState<string | null>(null);
+
+  const activeModel = models.find(m => m.id === activeModelId);
+  const geometry = activeModel?.geometry || null;
+  const objectScale = activeModel?.scale || 1;
+  const panOffset = activeModel?.panOffset || { x: 0, z: 0 };
+  const fineRotationY = activeModel?.fineRotationY || 0;
+  const snapRotation = activeModel?.snapRotation || { x: 0, y: 0, z: 0 };
+
+  const updateActiveModel = (updater: (prev: any) => any) => {
+    setModels(prev => prev.map(m => m.id === activeModelId ? updater(m) : m));
+  };
+
+  const setPanOffset = (updater: any) => updateActiveModel(m => ({ ...m, panOffset: typeof updater === 'function' ? updater(m.panOffset) : updater }));
+  const setFineRotationY = (updater: any) => updateActiveModel(m => ({ ...m, fineRotationY: typeof updater === 'function' ? updater(m.fineRotationY) : updater }));
+  const setSnapRotation = (updater: any) => updateActiveModel(m => ({ ...m, snapRotation: typeof updater === 'function' ? updater(m.snapRotation) : updater }));
+  const setObjectScale = (val: number) => updateActiveModel(m => ({ ...m, scale: val }));
+
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(true);
   const [showMeasurements, setShowMeasurements] = useState(true);
   const [unit, setUnit] = useState<'mm'|'in'>('mm');
   const [projScale, setProjScale] = useState(1);
-  const [objectScale, setObjectScale] = useState(1);
-  
-  const [panOffset, setPanOffset] = useState({ x: 0, z: 0 });
-  const [fineRotationY, setFineRotationY] = useState(0);
 
   const [selectedPrinterPreset, setSelectedPrinterPreset] = useState(PRINTERS[0]);
   const [customDims, setCustomDims] = useState({ width: 300, depth: 300, height: 300 });
@@ -218,12 +231,12 @@ function App() {
       }
 
       switch(e.key) {
-        case 'ArrowUp': setPanOffset(p => ({ ...p, z: p.z - step })); break;
-        case 'ArrowDown': setPanOffset(p => ({ ...p, z: p.z + step })); break;
-        case 'ArrowLeft': setPanOffset(p => ({ ...p, x: p.x - step })); break;
-        case 'ArrowRight': setPanOffset(p => ({ ...p, x: p.x + step })); break;
-        case '[': setFineRotationY(r => r + THREE.MathUtils.degToRad(rotStep)); break;
-        case ']': setFineRotationY(r => r - THREE.MathUtils.degToRad(rotStep)); break;
+        case 'ArrowUp': setPanOffset((p: {x:number, z:number}) => ({ ...p, z: p.z - step })); break;
+        case 'ArrowDown': setPanOffset((p: {x:number, z:number}) => ({ ...p, z: p.z + step })); break;
+        case 'ArrowLeft': setPanOffset((p: {x:number, z:number}) => ({ ...p, x: p.x - step })); break;
+        case 'ArrowRight': setPanOffset((p: {x:number, z:number}) => ({ ...p, x: p.x + step })); break;
+        case '[': setFineRotationY((r: number) => r + THREE.MathUtils.degToRad(rotStep)); break;
+        case ']': setFineRotationY((r: number) => r - THREE.MathUtils.degToRad(rotStep)); break;
         case 'c': 
         case 'C': 
            setPanOffset({ x: 0, z: 0 }); 
@@ -240,78 +253,80 @@ function App() {
     if (files.length === 0) return;
 
     const loader = new STLLoader();
-    const geometries: THREE.BufferGeometry[] = [];
+    const newModels: any[] = [];
 
     for (const file of files) {
       try {
         const buffer = await file.arrayBuffer();
         const geo = loader.parse(buffer);
-        geometries.push(geo);
+        
+        geo.rotateX(-Math.PI / 2); // Convert to Y-up
+        geo.computeBoundingBox();
+        if (geo.boundingBox) {
+          const center = new THREE.Vector3();
+          geo.boundingBox.getCenter(center);
+          // Only drop to floor, do not center X and Z automatically to preserve assembly spacing
+          geo.translate(-center.x, -geo.boundingBox.min.y, -center.z);
+        }
+
+        newModels.push({
+          id: Math.random().toString(36).substring(7),
+          name: file.name,
+          geometry: geo,
+          scale: 1,
+          panOffset: { x: 0, z: 0 },
+          fineRotationY: 0,
+          snapRotation: { x: 0, y: 0, z: 0 }
+        });
       } catch (err) {
         console.error("Failed to parse", file.name, err);
-        alert(`Failed to parse ${file.name}. Ensure it's a valid STL.`);
       }
     }
 
-    if (geometries.length === 0) return;
+    if (newModels.length === 0) return;
 
-    // Merge all geometries into a single assembly to preserve relative positions
-    let finalGeo = geometries[0];
-    if (geometries.length > 1) {
-      finalGeo = BufferGeometryUtils.mergeGeometries(geometries);
-    }
-
-    finalGeo.rotateX(-Math.PI / 2); // Convert to Y-up
-    
-    finalGeo.computeBoundingBox();
-    if (finalGeo.boundingBox) {
-      const center = new THREE.Vector3();
-      finalGeo.boundingBox.getCenter(center);
-      finalGeo.translate(-center.x, -finalGeo.boundingBox.min.y, -center.z);
-    }
-    
-    setGeometry(finalGeo);
-    setObjectScale(1); 
-    setPanOffset({ x: 0, z: 0 });
-    setFineRotationY(0);
-    setSnapRotation({x: 0, y: 0, z: 0});
+    setModels(prev => {
+        const next = [...prev, ...newModels];
+        if (!activeModelId) setActiveModelId(next[next.length - 1].id);
+        return next;
+    });
   };
 
   const rotateGeometry = (axis: 'x' | 'y' | 'z') => {
     if (!geometry) return;
-    setSnapRotation(prev => ({
+    setSnapRotation((prev: {x:number, y:number, z:number}) => ({
       ...prev,
       [axis]: prev[axis as keyof typeof prev] + Math.PI / 2
     }));
   };
 
   const exportSTL = () => {
-    if (!geometry) return;
+    if (models.length === 0) return;
     
-    // Clone to avoid modifying the current view
-    const exportGeo = geometry.clone();
-    
-    // Apply transformations in the exact order they are rendered
-    exportGeo.scale(objectScale, objectScale, objectScale);
-    
-    exportGeo.rotateX(snapRotation.x);
-    exportGeo.rotateY(snapRotation.y);
-    exportGeo.rotateZ(snapRotation.z);
-    
-    exportGeo.computeBoundingBox();
-    if (exportGeo.boundingBox) {
-      const center = new THREE.Vector3();
-      exportGeo.boundingBox.getCenter(center);
-      exportGeo.translate(-center.x, -exportGeo.boundingBox.min.y, -center.z);
+    const geometriesToExport = models.map(m => {
+        const exportGeo = m.geometry.clone();
+        exportGeo.scale(m.scale, m.scale, m.scale);
+        exportGeo.rotateX(m.snapRotation.x);
+        exportGeo.rotateY(m.snapRotation.y);
+        exportGeo.rotateZ(m.snapRotation.z);
+        exportGeo.computeBoundingBox();
+        if (exportGeo.boundingBox) {
+          const center = new THREE.Vector3();
+          exportGeo.boundingBox.getCenter(center);
+          exportGeo.translate(-center.x, -exportGeo.boundingBox.min.y, -center.z);
+        }
+        exportGeo.rotateY(m.fineRotationY);
+        exportGeo.translate(m.panOffset.x, 0, m.panOffset.z);
+        exportGeo.rotateX(Math.PI / 2);
+        return exportGeo;
+    });
+
+    let finalExportGeo = geometriesToExport[0];
+    if (geometriesToExport.length > 1) {
+        finalExportGeo = BufferGeometryUtils.mergeGeometries(geometriesToExport);
     }
-    
-    exportGeo.rotateY(fineRotationY);
-    exportGeo.translate(panOffset.x, 0, panOffset.z);
-    
-    // Convert back from ThreeJS Y-up space to standard STL Z-up space
-    exportGeo.rotateX(Math.PI / 2);
-    
-    const exportMesh = new THREE.Mesh(exportGeo, new THREE.MeshBasicMaterial());
+
+    const exportMesh = new THREE.Mesh(finalExportGeo, new THREE.MeshBasicMaterial());
     const exporter = new STLExporter();
     const stlString = exporter.parse(exportMesh);
     
@@ -326,7 +341,6 @@ function App() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
-
   const containerRef = useRef<HTMLDivElement>(null);
 
   const toggleFullscreen = () => {
@@ -542,7 +556,7 @@ function App() {
           </Canvas>
         </div>
 
-        {!geometry && isPreviewMode && (
+        {models.length === 0 && isPreviewMode && (
           <div className="absolute z-10 text-gray-500 font-mono text-sm border-2 border-gray-300 p-8 rounded-xl border-dashed bg-white/50 backdrop-blur-sm pointer-events-none shadow-sm">
             Upload an STL to preview inside the <span className="font-bold text-gray-700">{activePrinter.name}</span>
           </div>
