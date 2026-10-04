@@ -307,15 +307,19 @@ function App() {
       }
 
       switch(e.key) {
-        case 'ArrowUp': setPanOffset((p: {x:number, z:number}) => ({ ...p, z: p.z - step })); break;
-        case 'ArrowDown': setPanOffset((p: {x:number, z:number}) => ({ ...p, z: p.z + step })); break;
-        case 'ArrowLeft': setPanOffset((p: {x:number, z:number}) => ({ ...p, x: p.x - step })); break;
-        case 'ArrowRight': setPanOffset((p: {x:number, z:number}) => ({ ...p, x: p.x + step })); break;
+        case 'ArrowUp': setPanOffset((p: {x:number, y:number, z:number}) => ({ ...p, z: p.z - step })); break;
+        case 'ArrowDown': setPanOffset((p: {x:number, y:number, z:number}) => ({ ...p, z: p.z + step })); break;
+        case 'ArrowLeft': setPanOffset((p: {x:number, y:number, z:number}) => ({ ...p, x: p.x - step })); break;
+        case 'ArrowRight': setPanOffset((p: {x:number, y:number, z:number}) => ({ ...p, x: p.x + step })); break;
+        case 'w':
+        case 'W': setPanOffset((p: {x:number, y:number, z:number}) => ({ ...p, y: p.y + step })); break;
+        case 's':
+        case 'S': setPanOffset((p: {x:number, y:number, z:number}) => ({ ...p, y: p.y - step })); break;
         case '[': setFineRotationY((r: number) => r + THREE.MathUtils.degToRad(rotStep)); break;
         case ']': setFineRotationY((r: number) => r - THREE.MathUtils.degToRad(rotStep)); break;
         case 'c': 
         case 'C': 
-           setPanOffset({ x: 0, z: 0 }); 
+           setPanOffset({ x: 0, y: 0, z: 0 }); 
            setFineRotationY(0);
            break;
       }
@@ -350,7 +354,7 @@ function App() {
           name: file.name,
           geometry: geo,
           scale: 1,
-          panOffset: { x: 0, z: 0 },
+          panOffset: { x: 0, y: 0, z: 0 },
           fineRotationY: 0,
           snapRotation: { x: 0, y: 0, z: 0 }
         });
@@ -392,7 +396,7 @@ function App() {
           exportGeo.translate(-center.x, -exportGeo.boundingBox.min.y, -center.z);
         }
         exportGeo.rotateY(m.fineRotationY);
-        exportGeo.translate(m.panOffset.x, 0, m.panOffset.z);
+        exportGeo.translate(m.panOffset.x, m.panOffset.y, m.panOffset.z);
         exportGeo.rotateX(Math.PI / 2);
         return exportGeo;
     });
@@ -574,9 +578,9 @@ function App() {
              <input type="range" min="-180" max="180" value={THREE.MathUtils.radToDeg(fineRotationY)} onChange={e => setFineRotationY(THREE.MathUtils.degToRad(parseFloat(e.target.value)))} className="w-full accent-amber-500" />
              
              <div className="text-xs font-bold mt-4 tracking-wider uppercase text-amber-600">Calibration Pan</div>
-             <div className="text-[10px] text-amber-700 leading-tight mb-3">Use <kbd className="bg-[#0a0500] px-1 py-0.5 rounded border border-[#4a2800] font-mono text-amber-500 shadow-sm">Arrow Keys</kbd> to nudge projection position.</div>
+             <div className="text-[10px] text-amber-700 leading-tight mb-3">Use <kbd className="bg-[#0a0500] px-1 py-0.5 rounded border border-[#4a2800] font-mono text-amber-500 shadow-sm">Arrows (X/Z)</kbd> and <kbd className="bg-[#0a0500] px-1 py-0.5 rounded border border-[#4a2800] font-mono text-amber-500 shadow-sm">W/S (Y)</kbd> to nudge projection position.</div>
              
-             <button onClick={() => { setPanOffset({x:0,z:0}); setFineRotationY(0); }} className="px-3 py-2 w-full rounded-lg text-sm font-bold bg-[#3a2000] text-amber-400 hover:bg-[#4a2800] transition-colors border border-[#5a3000] shadow-sm">
+             <button onClick={() => { setPanOffset({x:0,y:0,z:0}); setFineRotationY(0); }} className="px-3 py-2 w-full rounded-lg text-sm font-bold bg-[#3a2000] text-amber-400 hover:bg-[#4a2800] transition-colors border border-[#5a3000] shadow-sm">
                Reset to Center
              </button>
           </div>
@@ -637,7 +641,7 @@ function App() {
               <group>
                 <VirtualPrinter width={activePrinter.width} depth={activePrinter.depth} height={activePrinter.height} style={activePrinter.style} isPreviewMode={isPreviewMode} isCalibrating={isCalibrating} showMeasurements={showMeasurements} unit={unit} />
                 {models.map(m => (
-                  <group key={m.id} position={[m.panOffset.x, 0, m.panOffset.z]} rotation={[0, m.fineRotationY, 0]}>
+                  <group key={m.id} position={[m.panOffset.x, m.panOffset.y, m.panOffset.z]} rotation={[0, m.fineRotationY, 0]}>
                     <ModelRenderer geometry={m.geometry} scale={m.scale} snapRotation={m.snapRotation} showMeasurements={showMeasurements && activeModelId === m.id} unit={unit} isPreviewMode={isPreviewMode} />
                   </group>
                 ))}
