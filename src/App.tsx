@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { Upload, Maximize2, Crosshair, Grid, Settings2, Box, Scaling, Ruler, Download } from 'lucide-react';
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const PRINTERS = [
   { name: 'Flashforge Creator 5 Pro', width: 256, depth: 256, height: 300, style: 'enclosed' },
@@ -234,34 +235,46 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const contents = e.target?.result as ArrayBuffer;
-      const loader = new STLLoader();
+    const loader = new STLLoader();
+    const geometries: THREE.BufferGeometry[] = [];
+
+    for (const file of files) {
       try {
-        const geo = loader.parse(contents);
-        geo.rotateX(-Math.PI / 2);
-        
-        geo.computeBoundingBox();
-        if (geo.boundingBox) {
-          const center = new THREE.Vector3();
-          geo.boundingBox.getCenter(center);
-          geo.translate(-center.x, -geo.boundingBox.min.y, -center.z);
-        }
-        
-        setGeometry(geo);
-        setObjectScale(1); 
-        setPanOffset({ x: 0, z: 0 });
-        setFineRotationY(0);
+        const buffer = await file.arrayBuffer();
+        const geo = loader.parse(buffer);
+        geometries.push(geo);
       } catch (err) {
-        alert("Failed to parse STL file. Please ensure it's a valid STL.");
+        console.error("Failed to parse", file.name, err);
+        alert(`Failed to parse ${file.name}. Ensure it's a valid STL.`);
       }
-    };
-    reader.readAsArrayBuffer(file);
+    }
+
+    if (geometries.length === 0) return;
+
+    // Merge all geometries into a single assembly to preserve relative positions
+    let finalGeo = geometries[0];
+    if (geometries.length > 1) {
+      finalGeo = BufferGeometryUtils.mergeGeometries(geometries);
+    }
+
+    finalGeo.rotateX(-Math.PI / 2); // Convert to Y-up
+    
+    finalGeo.computeBoundingBox();
+    if (finalGeo.boundingBox) {
+      const center = new THREE.Vector3();
+      finalGeo.boundingBox.getCenter(center);
+      finalGeo.translate(-center.x, -finalGeo.boundingBox.min.y, -center.z);
+    }
+    
+    setGeometry(finalGeo);
+    setObjectScale(1); 
+    setPanOffset({ x: 0, z: 0 });
+    setFineRotationY(0);
+    setSnapRotation({x: 0, y: 0, z: 0});
   };
 
   const rotateGeometry = (axis: 'x' | 'y' | 'z') => {
@@ -396,7 +409,7 @@ function App() {
           <label className="flex items-center gap-2 px-3 py-2 md:px-4 rounded cursor-pointer transition-colors text-sm font-medium whitespace-nowrap bg-amber-600 hover:bg-amber-500 text-black shadow-[0_0_15px_rgba(217,119,6,0.4)]">
             <Upload size={16} />
             <span className="hidden xl:inline">Upload STL</span>
-            <input type="file" accept=".stl" className="hidden" onChange={handleFileUpload} />
+            <input type="file" multiple accept=".stl" className="hidden" onChange={handleFileUpload} />
           </label>
 
           <button 
