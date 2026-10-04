@@ -14,6 +14,8 @@ const PRINTERS = [
   { name: 'Prusa MK3S+ / MK4', width: 250, depth: 210, height: 220, style: 'i3' },
   { name: 'Voron 2.4 (350mm)', width: 350, depth: 350, height: 350, style: 'corexy' },
   { name: 'Elegoo Neptune 3 Max', width: 420, depth: 420, height: 500, style: 'i3' },
+  { name: 'Auto Garage (1-Car)', width: 3500, depth: 6000, height: 2500, style: 'garage' },
+  { name: 'Airport Hangar', width: 30000, depth: 30000, height: 15000, style: 'hangar' },
   { name: 'Custom Printer...', width: 300, depth: 300, height: 300, style: 'enclosed' }
 ];
 
@@ -132,6 +134,38 @@ const VirtualPrinter = ({ width, depth, height, style, isPreviewMode, isCalibrat
       </mesh>
     </group>
   );
+
+  if (style === 'garage') {
+    return (
+      <group>
+        <BuildPlate />
+        {/* Back Wall */}
+        <mesh position={[0, height/2, -depth/2 - 50]}><boxGeometry args={[width, height, 100]} /><meshStandardMaterial color="#222" /></mesh>
+        {/* Side Walls */}
+        <mesh position={[width/2 + 50, height/2, 0]}><boxGeometry args={[100, height, depth]} /><meshStandardMaterial color="#222" /></mesh>
+        <mesh position={[-width/2 - 50, height/2, 0]}><boxGeometry args={[100, height, depth]} /><meshStandardMaterial color="#222" /></mesh>
+        {/* Roof */}
+        <mesh position={[0, height + 50, 0]}><boxGeometry args={[width + 200, 100, depth + 200]} /><meshStandardMaterial color="#111" /></mesh>
+        <LightCone headY={height} />
+      </group>
+    );
+  }
+
+  if (style === 'hangar') {
+    return (
+      <group>
+        <BuildPlate />
+        {/* Back Wall */}
+        <mesh position={[0, height/2, -depth/2 - 500]}><boxGeometry args={[width, height, 1000]} /><meshStandardMaterial color="#1a1a1a" /></mesh>
+        {/* Arch Roof */}
+        <mesh position={[0, height, 0]} rotation={[Math.PI/2, Math.PI/2, 0]}>
+          <cylinderGeometry args={[width/2, width/2, depth, 32, 1, true, 0, Math.PI]} />
+          <meshStandardMaterial color="#111" side={THREE.DoubleSide} />
+        </mesh>
+        <LightCone headY={height} />
+      </group>
+    );
+  }
 
   if (style === 'i3') {
     return (
