@@ -408,9 +408,9 @@ function App() {
         });
 
         const exporter = new STLExporter();
-        const stlString = exporter.parse(group);
+        const result = exporter.parse(group, { binary: true });
         
-        const blob = new Blob([stlString], { type: 'text/plain' });
+        const blob = new Blob([result], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.style.display = 'none';
