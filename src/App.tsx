@@ -5,7 +5,6 @@ import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { Upload, Maximize2, Crosshair, Grid, Settings2, Box, Scaling, Ruler, Download } from 'lucide-react';
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const PRINTERS = [
   { name: 'Flashforge Creator 5 Pro', width: 256, depth: 256, height: 300, style: 'enclosed' },
@@ -384,43 +383,47 @@ function App() {
   const exportSTL = () => {
     if (models.length === 0) return;
     
-    const geometriesToExport = models.map(m => {
-        const exportGeo = m.geometry.clone();
-        exportGeo.scale(m.scale, m.scale, m.scale);
-        exportGeo.rotateX(m.snapRotation.x);
-        exportGeo.rotateY(m.snapRotation.y);
-        exportGeo.rotateZ(m.snapRotation.z);
-        exportGeo.computeBoundingBox();
-        if (exportGeo.boundingBox) {
-          const center = new THREE.Vector3();
-          exportGeo.boundingBox.getCenter(center);
-          exportGeo.translate(-center.x, -exportGeo.boundingBox.min.y, -center.z);
-        }
-        exportGeo.rotateY(m.fineRotationY);
-        exportGeo.translate(m.panOffset.x, m.panOffset.y, m.panOffset.z);
-        exportGeo.rotateX(Math.PI / 2);
-        return exportGeo;
-    });
+    try {
+        const geometriesToExport = models.map(m => {
+            const exportGeo = m.geometry.clone();
+            exportGeo.scale(m.scale, m.scale, m.scale);
+            exportGeo.rotateX(m.snapRotation.x);
+            exportGeo.rotateY(m.snapRotation.y);
+            exportGeo.rotateZ(m.snapRotation.z);
+            exportGeo.computeBoundingBox();
+            if (exportGeo.boundingBox) {
+              const center = new THREE.Vector3();
+              exportGeo.boundingBox.getCenter(center);
+              exportGeo.translate(-center.x, -exportGeo.boundingBox.min.y, -center.z);
+            }
+            exportGeo.rotateY(m.fineRotationY);
+            exportGeo.translate(m.panOffset.x, m.panOffset.y, m.panOffset.z);
+            exportGeo.rotateX(Math.PI / 2);
+            return exportGeo;
+        });
 
-    let finalExportGeo = geometriesToExport[0];
-    if (geometriesToExport.length > 1) {
-        finalExportGeo = BufferGeometryUtils.mergeGeometries(geometriesToExport);
+        const group = new THREE.Group();
+        geometriesToExport.forEach(geo => {
+            group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial()));
+        });
+
+        const exporter = new STLExporter();
+        const stlString = exporter.parse(group);
+        
+        const blob = new Blob([stlString], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.style.display = 'none';
+        link.href = url;
+        link.download = 'aligned_assembly.stl';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error("Export failed:", err);
+        alert("Failed to export STL: " + (err instanceof Error ? err.message : String(err)));
     }
-
-    const exportMesh = new THREE.Mesh(finalExportGeo, new THREE.MeshBasicMaterial());
-    const exporter = new STLExporter();
-    const stlString = exporter.parse(exportMesh);
-    
-    const blob = new Blob([stlString], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.style.display = 'none';
-    link.href = url;
-    link.download = 'aligned_part.stl';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
   const containerRef = useRef<HTMLDivElement>(null);
 
